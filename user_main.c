@@ -16,6 +16,7 @@ int n = 0;
 int sign  = 1;
 int last_value = 0;
 char BufferLia[128];
+bool Connet_To_sever = false;
 
 static volatile os_timer_t some_timer;
 
@@ -79,6 +80,51 @@ control_lamp(int value)
 }
 
 /******************************************************************************
+ * FunctionName : send_RSSI
+ * Description  : send stat RSSI to server
+ * Parameters   : none
+ * Returns      : none
+*******************************************************************************/
+void ICACHE_FLASH_ATTR
+send_RSSI()
+{
+    int This_variabel_is_RSSI = wifi_station_get_rssi();
+    os_printf("RSSI = %d\n", This_variabel_is_RSSI);
+    /*
+    please add your kaa procedure to send this data to server at here.
+    */
+}
+
+/******************************************************************************
+ * FunctionName : send_current
+ * Description  : send value of current to server
+ * Parameters   : none
+ * Returns      : none
+*******************************************************************************/
+void ICACHE_FLASH_ATTR
+send_current()
+{
+    int This_variabel_is_current = system_adc_read();
+    os_printf("current = %d\n", This_variabel_is_current);
+    /*
+    please add your kaa procedure to send this data to server at here.
+    */
+}
+
+/******************************************************************************
+ * FunctionName : inteligent_local
+ * Description  : control dimmer lamp, if connection is not reliable
+ * Parameters   : none
+ * Returns      : none
+*******************************************************************************/
+void ICACHE_FLASH_ATTR
+inteligent_local()
+{
+    // still developing
+}
+
+
+/******************************************************************************
  * FunctionName : load_variabel
  * Description  : load value from the flash memory ( EEPROM on Arduino)
  * Parameters   : address memory (0 - 63)
@@ -96,38 +142,35 @@ load_variabel(int address)
 
 void some_timerfunc(void *arg)
 {
-    // control_lamp(i);
-    // os_printf("adc = %d\n", system_adc_read());
-    // os_printf("pwm_duty = %d\n", pwm_get_duty(0));
-    // os_printf("pwm_periode = %d\n", pwm_get_period());
-    // os_printf("RSSI = %d\n", wifi_station_get_rssi());
-    // os_printf("mode Wifi = %d\n", wifi_get_phy_mode());
-    // os_printf("EEPROM = %d\n\n", load_variabel(1));
+    /*
+        > device will check every one minute to get new value of Dimmer
+        > i hope you can make interupt handler base kaa to control lamp.(like subscribe on MQTT)
+    */
+       control_lamp(i);
 
-    // if(sign) {
-    //     sign = 0;
-    //     i = 100;
-    // }
-    // else{
-    //     sign = 1;
-    //     i = 0;   
 
-    i2c_master_start();
-    i2c_master_writeByte(DS3231_ADDRESS);
-    i2c_master_writeByte(0x30);
-    i2c_master_getAck();
-    i2c_master_writeByte(0x00);
-    i2c_master_getAck();
-    i2c_master_stop();
 
-    i2c_master_start();
-    i2c_master_writeByte(DS3231_ADDRESS);
-    i2c_master_writeByte(0x31);
-    i2c_master_getAck();
-    os_printf("LIA : %d \n",i2c_master_readByte());
-    i2c_master_send_nack();
-    i2c_master_stop();
+    /*
+        device will check status connection. and if connection not reliable. device will activate Local Inteliget
+        local inteligent will handle dimmer of lamp base RTC timer.
+    */
+        if (Connet_To_sever)
+        {
+            inteligent_local();
+        }
+
     
+
+
+     //   device will send some parameter to kaa server every 10 minutes. like RSSI, tempt, and current sensor.
+    if (n>=10)
+    {
+        n = 0;
+        send_RSSI();
+        send_current();
+
+
+    }
 
 }
 
@@ -135,6 +178,7 @@ void some_timerfunc(void *arg)
 void ICACHE_FLASH_ATTR
 user_init()
 {   
+    control_lamp(load_variabel(1)); 
     char ssid[32] = SSID;
     char password[64] = SSID_PASSWORD;
     struct station_config stationConf;
@@ -149,19 +193,10 @@ user_init()
 
     pwm_init(1000, duty,1,io_info);
     i2c_master_gpio_init();
-    
-    i2c_master_start();
-    i2c_master_writeByte(DS3231_ADDRESS);
-    i2c_master_writeByte(0x30);
-    i2c_master_getAck();
-    i2c_master_writeByte(0x0E);
-    i2c_master_getAck();
-    i2c_master_writeByte(0x1C);
-    i2c_master_getAck();
-    i2c_master_stop(); 
 
+    //timer 60 s
     os_timer_disarm(&some_timer);
     os_timer_setfn(&some_timer, (os_timer_func_t *)some_timerfunc, NULL);
-    os_timer_arm(&some_timer, 2000, 1);
+    os_timer_arm(&some_timer, 60000, 1);
     
 }
