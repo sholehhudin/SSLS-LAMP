@@ -395,6 +395,7 @@ void some_timerfunc(void *arg)
         send_current();
         send_temp();
     }
+    n++;
     os_printf("Menit = %d\n", RTC_get_min());
 
 }
